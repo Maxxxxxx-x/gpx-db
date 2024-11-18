@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS Records(
     Duration float,
     Distance float,
     Ascent float,
-    Descent float
+    Descent float,
+    IsFlagged BOOLEAN DEFAULT FALSE,
+    FlagReason TEXT
 );
 
 CREATE TABLE IF NOT EXISTS TrailData(
