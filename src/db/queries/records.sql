@@ -23,6 +23,10 @@ INSERT INTO Records (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
 ) RETURNING *;
 
+-- name: FlagRecord :one
+UPDATE Records
+SET IsFlagged = "true", FlagReason = $2 WHERE Id = $1 RETURNING *;
+
 -- name: DeleteRecord :exec
 DELETE FROM Records WHERE Id = $1;
 
