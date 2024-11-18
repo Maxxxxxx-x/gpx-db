@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS Records(
     Id UUID PRIMARY KEY,
     UserId TEXT NOT NULL REFERENCES Users(Id),
-    FileId UUID NOT NULL REFERENCES GpxFiles(Id),
+    FileId UUID NOT NULL REFERENCES GpxFiles(Id) ON DELETE CASCADE,
     TrailName TEXT NOT NULL,
     RecordedAt TIMESTAMPTZ,
     Duration float,
