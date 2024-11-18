@@ -19,4 +19,4 @@ INSERT INTO GpxFiles (
 DELETE FROM GpxFiles WHERE Id = $1;
 
 -- name: DeleteGpxFiles :exec
-DELETE FROM GpxFiles
+DELETE FROM GpxFiles;
