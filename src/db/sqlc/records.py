@@ -4,7 +4,7 @@
 # source: records.sql
 import dataclasses
 import datetime
-from typing import AsyncIterator, Iterator, Optional
+from typing import Any, AsyncIterator, Iterator, Optional
 import uuid
 
 import sqlalchemy
@@ -13,47 +13,47 @@ import sqlalchemy.ext.asyncio
 from gpx_data import models
 
 
-DELETE_RECORD = """-- name: delete_record \\:exec
+DELETE_RECORD_BY_ID = """-- name: delete_record_by_id \\:exec
 DELETE FROM Records WHERE Id = :p1
 """
 
 
-GET_RECORD_BY_DISTANCE = """-- name: get_record_by_distance \\:many
-SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent FROM Records WHERE Distance = :p1
+DELETE_RECORDS_BY_USER_ID = """-- name: delete_records_by_user_id \\:exec
+DELETE FROM Records WHERE UserId = :p1
 """
 
 
-GET_RECORD_BY_DURATION = """-- name: get_record_by_duration \\:many
-SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent FROM Records WHERE Duration = :p1
-"""
-
-
-GET_RECORD_BY_ID = """-- name: get_record_by_id \\:one
-SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent FROM Records WHERE Id = :p1 LIMIT 1
+FLAG_RECORD = """-- name: flag_record \\:one
+UPDATE Records SET FlagReason = :p2 WHERE Id = :p1 RETURNING id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent, flagreason, traildata
 """
 
 
 GET_RECORDS = """-- name: get_records \\:many
-SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent FROM Records
+SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent, flagreason, traildata FROM Records
 """
 
 
-GET_RECORDS_BY_FILE_ID = """-- name: get_records_by_file_id \\:one
-SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent FROM Records WHERE FileId = :p1 LIMIT 1
+GET_RECORDS_BY_FILE_ID = """-- name: get_records_by_file_id \\:many
+SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent, flagreason, traildata FROM Records WHERE FileId = :p1 LIMIT 1
+"""
+
+
+GET_RECORDS_BY_TRAIL_NAME = """-- name: get_records_by_trail_name \\:many
+SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent, flagreason, traildata FROM Records WHERE TrailName = :p1
 """
 
 
 GET_RECORDS_BY_USER_ID = """-- name: get_records_by_user_id \\:many
-SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent FROM Records WHERE UserId = :p1
+SELECT id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent, flagreason, traildata FROM Records WHERE UserId = :p1
 """
 
 
 INSERT_RECORD = """-- name: insert_record \\:one
 INSERT INTO Records (
-    Id, UserId, FileId, TrailName, RecordedAt, Duration, Distance, Ascent, Descent
+    Id, UserId, FileId, TrailName, RecordedAt, Duration, Distance, Ascent, Descent, TrailData
 ) VALUES (
-    :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9
-) RETURNING id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent
+    :p1, :p2, :p3, :p4, :p5, :p6, :p7, :p8, :p9, :p10
+) RETURNING id, userid, fileid, trailname, recordedat, duration, distance, ascent, descent, flagreason, traildata
 """
 
 
@@ -68,52 +68,21 @@ class InsertRecordParams:
     distance: Optional[float]
     ascent: Optional[float]
     descent: Optional[float]
-
-
-REMOVE_ALL_RECORDS = """-- name: remove_all_records \\:exec
-DELETE FROM Records
-"""
+    traildata: Any
 
 
 class Querier:
     def __init__(self, conn: sqlalchemy.engine.Connection):
         self._conn = conn
 
-    def delete_record(self, *, id: uuid.UUID) -> None:
-        self._conn.execute(sqlalchemy.text(DELETE_RECORD), {"p1": id})
+    def delete_record_by_id(self, *, id: uuid.UUID) -> None:
+        self._conn.execute(sqlalchemy.text(DELETE_RECORD_BY_ID), {"p1": id})
 
-    def get_record_by_distance(self, *, distance: Optional[float]) -> Iterator[models.Record]:
-        result = self._conn.execute(sqlalchemy.text(GET_RECORD_BY_DISTANCE), {"p1": distance})
-        for row in result:
-            yield models.Record(
-                id=row[0],
-                userid=row[1],
-                fileid=row[2],
-                trailname=row[3],
-                recordedat=row[4],
-                duration=row[5],
-                distance=row[6],
-                ascent=row[7],
-                descent=row[8],
-            )
+    def delete_records_by_user_id(self, *, userid: str) -> None:
+        self._conn.execute(sqlalchemy.text(DELETE_RECORDS_BY_USER_ID), {"p1": userid})
 
-    def get_record_by_duration(self, *, duration: Optional[float]) -> Iterator[models.Record]:
-        result = self._conn.execute(sqlalchemy.text(GET_RECORD_BY_DURATION), {"p1": duration})
-        for row in result:
-            yield models.Record(
-                id=row[0],
-                userid=row[1],
-                fileid=row[2],
-                trailname=row[3],
-                recordedat=row[4],
-                duration=row[5],
-                distance=row[6],
-                ascent=row[7],
-                descent=row[8],
-            )
-
-    def get_record_by_id(self, *, id: uuid.UUID) -> Optional[models.Record]:
-        row = self._conn.execute(sqlalchemy.text(GET_RECORD_BY_ID), {"p1": id}).first()
+    def flag_record(self, *, id: uuid.UUID, flagreason: Optional[str]) -> Optional[models.Record]:
+        row = self._conn.execute(sqlalchemy.text(FLAG_RECORD), {"p1": id, "p2": flagreason}).first()
         if row is None:
             return None
         return models.Record(
@@ -126,6 +95,8 @@ class Querier:
             distance=row[6],
             ascent=row[7],
             descent=row[8],
+            flagreason=row[9],
+            traildata=row[10],
         )
 
     def get_records(self) -> Iterator[models.Record]:
@@ -141,23 +112,43 @@ class Querier:
                 distance=row[6],
                 ascent=row[7],
                 descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
             )
 
-    def get_records_by_file_id(self, *, fileid: uuid.UUID) -> Optional[models.Record]:
-        row = self._conn.execute(sqlalchemy.text(GET_RECORDS_BY_FILE_ID), {"p1": fileid}).first()
-        if row is None:
-            return None
-        return models.Record(
-            id=row[0],
-            userid=row[1],
-            fileid=row[2],
-            trailname=row[3],
-            recordedat=row[4],
-            duration=row[5],
-            distance=row[6],
-            ascent=row[7],
-            descent=row[8],
-        )
+    def get_records_by_file_id(self, *, fileid: uuid.UUID) -> Iterator[models.Record]:
+        result = self._conn.execute(sqlalchemy.text(GET_RECORDS_BY_FILE_ID), {"p1": fileid})
+        for row in result:
+            yield models.Record(
+                id=row[0],
+                userid=row[1],
+                fileid=row[2],
+                trailname=row[3],
+                recordedat=row[4],
+                duration=row[5],
+                distance=row[6],
+                ascent=row[7],
+                descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
+            )
+
+    def get_records_by_trail_name(self, *, trailname: str) -> Iterator[models.Record]:
+        result = self._conn.execute(sqlalchemy.text(GET_RECORDS_BY_TRAIL_NAME), {"p1": trailname})
+        for row in result:
+            yield models.Record(
+                id=row[0],
+                userid=row[1],
+                fileid=row[2],
+                trailname=row[3],
+                recordedat=row[4],
+                duration=row[5],
+                distance=row[6],
+                ascent=row[7],
+                descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
+            )
 
     def get_records_by_user_id(self, *, userid: str) -> Iterator[models.Record]:
         result = self._conn.execute(sqlalchemy.text(GET_RECORDS_BY_USER_ID), {"p1": userid})
@@ -172,6 +163,8 @@ class Querier:
                 distance=row[6],
                 ascent=row[7],
                 descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
             )
 
     def insert_record(self, arg: InsertRecordParams) -> Optional[models.Record]:
@@ -185,6 +178,7 @@ class Querier:
             "p7": arg.distance,
             "p8": arg.ascent,
             "p9": arg.descent,
+            "p10": arg.traildata,
         }).first()
         if row is None:
             return None
@@ -198,51 +192,23 @@ class Querier:
             distance=row[6],
             ascent=row[7],
             descent=row[8],
+            flagreason=row[9],
+            traildata=row[10],
         )
-
-    def remove_all_records(self) -> None:
-        self._conn.execute(sqlalchemy.text(REMOVE_ALL_RECORDS))
 
 
 class AsyncQuerier:
     def __init__(self, conn: sqlalchemy.ext.asyncio.AsyncConnection):
         self._conn = conn
 
-    async def delete_record(self, *, id: uuid.UUID) -> None:
-        await self._conn.execute(sqlalchemy.text(DELETE_RECORD), {"p1": id})
+    async def delete_record_by_id(self, *, id: uuid.UUID) -> None:
+        await self._conn.execute(sqlalchemy.text(DELETE_RECORD_BY_ID), {"p1": id})
 
-    async def get_record_by_distance(self, *, distance: Optional[float]) -> AsyncIterator[models.Record]:
-        result = await self._conn.stream(sqlalchemy.text(GET_RECORD_BY_DISTANCE), {"p1": distance})
-        async for row in result:
-            yield models.Record(
-                id=row[0],
-                userid=row[1],
-                fileid=row[2],
-                trailname=row[3],
-                recordedat=row[4],
-                duration=row[5],
-                distance=row[6],
-                ascent=row[7],
-                descent=row[8],
-            )
+    async def delete_records_by_user_id(self, *, userid: str) -> None:
+        await self._conn.execute(sqlalchemy.text(DELETE_RECORDS_BY_USER_ID), {"p1": userid})
 
-    async def get_record_by_duration(self, *, duration: Optional[float]) -> AsyncIterator[models.Record]:
-        result = await self._conn.stream(sqlalchemy.text(GET_RECORD_BY_DURATION), {"p1": duration})
-        async for row in result:
-            yield models.Record(
-                id=row[0],
-                userid=row[1],
-                fileid=row[2],
-                trailname=row[3],
-                recordedat=row[4],
-                duration=row[5],
-                distance=row[6],
-                ascent=row[7],
-                descent=row[8],
-            )
-
-    async def get_record_by_id(self, *, id: uuid.UUID) -> Optional[models.Record]:
-        row = (await self._conn.execute(sqlalchemy.text(GET_RECORD_BY_ID), {"p1": id})).first()
+    async def flag_record(self, *, id: uuid.UUID, flagreason: Optional[str]) -> Optional[models.Record]:
+        row = (await self._conn.execute(sqlalchemy.text(FLAG_RECORD), {"p1": id, "p2": flagreason})).first()
         if row is None:
             return None
         return models.Record(
@@ -255,6 +221,8 @@ class AsyncQuerier:
             distance=row[6],
             ascent=row[7],
             descent=row[8],
+            flagreason=row[9],
+            traildata=row[10],
         )
 
     async def get_records(self) -> AsyncIterator[models.Record]:
@@ -270,23 +238,43 @@ class AsyncQuerier:
                 distance=row[6],
                 ascent=row[7],
                 descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
             )
 
-    async def get_records_by_file_id(self, *, fileid: uuid.UUID) -> Optional[models.Record]:
-        row = (await self._conn.execute(sqlalchemy.text(GET_RECORDS_BY_FILE_ID), {"p1": fileid})).first()
-        if row is None:
-            return None
-        return models.Record(
-            id=row[0],
-            userid=row[1],
-            fileid=row[2],
-            trailname=row[3],
-            recordedat=row[4],
-            duration=row[5],
-            distance=row[6],
-            ascent=row[7],
-            descent=row[8],
-        )
+    async def get_records_by_file_id(self, *, fileid: uuid.UUID) -> AsyncIterator[models.Record]:
+        result = await self._conn.stream(sqlalchemy.text(GET_RECORDS_BY_FILE_ID), {"p1": fileid})
+        async for row in result:
+            yield models.Record(
+                id=row[0],
+                userid=row[1],
+                fileid=row[2],
+                trailname=row[3],
+                recordedat=row[4],
+                duration=row[5],
+                distance=row[6],
+                ascent=row[7],
+                descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
+            )
+
+    async def get_records_by_trail_name(self, *, trailname: str) -> AsyncIterator[models.Record]:
+        result = await self._conn.stream(sqlalchemy.text(GET_RECORDS_BY_TRAIL_NAME), {"p1": trailname})
+        async for row in result:
+            yield models.Record(
+                id=row[0],
+                userid=row[1],
+                fileid=row[2],
+                trailname=row[3],
+                recordedat=row[4],
+                duration=row[5],
+                distance=row[6],
+                ascent=row[7],
+                descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
+            )
 
     async def get_records_by_user_id(self, *, userid: str) -> AsyncIterator[models.Record]:
         result = await self._conn.stream(sqlalchemy.text(GET_RECORDS_BY_USER_ID), {"p1": userid})
@@ -301,6 +289,8 @@ class AsyncQuerier:
                 distance=row[6],
                 ascent=row[7],
                 descent=row[8],
+                flagreason=row[9],
+                traildata=row[10],
             )
 
     async def insert_record(self, arg: InsertRecordParams) -> Optional[models.Record]:
@@ -314,6 +304,7 @@ class AsyncQuerier:
             "p7": arg.distance,
             "p8": arg.ascent,
             "p9": arg.descent,
+            "p10": arg.traildata,
         })).first()
         if row is None:
             return None
@@ -327,7 +318,6 @@ class AsyncQuerier:
             distance=row[6],
             ascent=row[7],
             descent=row[8],
+            flagreason=row[9],
+            traildata=row[10],
         )
-
-    async def remove_all_records(self) -> None:
-        await self._conn.execute(sqlalchemy.text(REMOVE_ALL_RECORDS))

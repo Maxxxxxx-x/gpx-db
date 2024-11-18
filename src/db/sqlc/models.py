@@ -9,8 +9,7 @@ import uuid
 
 @dataclasses.dataclass()
 class Gpxfile:
-    id: uuid.UUID
-    gpxid: str
+    id: str
     filepath: str
     checksum: str
 
@@ -26,15 +25,10 @@ class Record:
     distance: Optional[float]
     ascent: Optional[float]
     descent: Optional[float]
-
-
-@dataclasses.dataclass()
-class Traildatum:
-    id: uuid.UUID
-    recordid: uuid.UUID
+    flagreason: Optional[str]
     traildata: Any
 
 
 @dataclasses.dataclass()
 class User:
-    userid: str
+    id: str
