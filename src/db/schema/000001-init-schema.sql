@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS Records(
     Id UUID PRIMARY KEY,
-    UserId TEXT NOT NULL,
+    UserId TEXT NOT NULL REFERENCES Users(Id),
     FileId UUID NOT NULL REFERENCES GpxFiles(Id),
     TrailName TEXT NOT NULL,
     RecordedAt TIMESTAMPTZ,
@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS Records(
     Distance float,
     Ascent float,
     Descent float,
-    IsFlagged BOOLEAN DEFAULT FALSE,
     FlagReason TEXT
     TrailData JSONB NOT NULL
 );
@@ -20,7 +19,7 @@ CREATE TABLE IF NOT EXISTS GpxFiles(
 );
 
 CREATE TABLE IF NOT EXISTS Users(
-    UserId TEXT PRIMARY KEY
+    Id TEXT PRIMARY KEY
 );
 
 CREATE INDEX IF NOT EXISTS records_userid ON Records(UserId);
