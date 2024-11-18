@@ -10,17 +10,11 @@ CREATE TABLE IF NOT EXISTS Records(
     Descent float,
     IsFlagged BOOLEAN DEFAULT FALSE,
     FlagReason TEXT
-);
-
-CREATE TABLE IF NOT EXISTS TrailData(
-    Id UUID PRIMARY KEY,
-    RecordId UUID NOT NULL REFERENCES Records(Id),
     TrailData JSONB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS GpxFiles(
-    Id UUID PRIMARY KEY,
-    GpxId TEXT NOT NULL,
+    Id TEXT NOT NULL,
     FilePath TEXT NOT NULL,
     Checksum TEXT NOT NULL
 );
