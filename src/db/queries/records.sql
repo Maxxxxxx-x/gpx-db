@@ -1,34 +1,28 @@
 -- name: GetRecords :many
 SELECT * FROM Records;
 
--- name: GetRecordById :one
-SELECT * FROM Records WHERE Id = $1 LIMIT 1;
-
 -- name: GetRecordsByUserId :many
 SELECT * FROM Records WHERE UserId = $1;
 
--- name: GetRecordsByFileId :one
+-- name: GetRecordsByFileId :many
 SELECT * FROM Records WHERE FileId = $1 LIMIT 1;
 
--- name: GetRecordByDistance :many
-SELECT * FROM Records WHERE Distance = $1;
-
--- name: GetRecordByDuration :many
-SELECT * FROM Records WHERE Duration = $1;
+-- name: GetRecordsByTrailName :many
+SELECT * FROM Records WHERE TrailName = $1;
 
 -- name: InsertRecord :one
 INSERT INTO Records (
-    Id, UserId, FileId, TrailName, RecordedAt, Duration, Distance, Ascent, Descent
+    Id, UserId, FileId, TrailName, RecordedAt, Duration, Distance, Ascent, Descent, TrailData
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 ) RETURNING *;
 
 -- name: FlagRecord :one
-UPDATE Records
-SET IsFlagged = "true", FlagReason = $2 WHERE Id = $1 RETURNING *;
+UPDATE Records SET FlagReason = $2 WHERE Id = $1 RETURNING *;
 
--- name: DeleteRecord :exec
+-- name: DeleteRecordById :exec
 DELETE FROM Records WHERE Id = $1;
 
--- name: RemoveAllRecords :exec
-DELETE FROM Records;
+-- name: DeleteRecordsByUserId :exec
+DELETE FROM Records WHERE UserId = $1;
+
