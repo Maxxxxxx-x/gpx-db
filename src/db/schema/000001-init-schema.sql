@@ -26,5 +26,4 @@ CREATE TABLE IF NOT EXISTS Users(
 CREATE INDEX IF NOT EXISTS records_userid ON Records(UserId);
 CREATE INDEX IF NOT EXISTS records_fileid ON Records(FileId);
 CREATE INDEX IF NOT EXISTS records_trailname ON Records(TrailName);
-CREATE INDEX IF NOT EXISTS traildata_recordid ON TrailData(RecordId);
 CREATE INDEX IF NOT EXISTS gpxfiles_gpxid ON GpxFiles(GpxId);
